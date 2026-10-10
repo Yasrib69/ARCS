@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>AR Caption Latency Probe</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: -apple-system, Segoe UI, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+
+    p.sub {
+      color: #999;
+      font-size: 13px;
+      margin: 0 0 16px;
+    }
+
+    #wrap {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      margin: 0 auto;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 640px;
+      height: 480px;
+      transform: scaleX(-1);
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 640px;
+      height: 480px;
+      transform: scaleX(-1);
+    }
+
+    #caption {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 16px;
+      max-width: 280px;
+      display: none;
+      pointer-events: none;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    #stats {
+      width: 640px;
+      margin: 16px auto 0;
+      font-size: 14px;
+      line-height: 1.8;
+      background: #1a1a1a;
+      padding: 14px 18px;
+      border-radius: 8px;
+    }
+
+    #stats span {
+      color: #4ade80;
+      font-weight: 600;
+    }
+
+    #status {
+      width: 640px;
+      margin: 10px auto 0;
+      font-size: 13px;
+      color: #f59e0b;
+      text-align: center;
+      min-height: 18px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>AR Captioning</h1>
+  <p class="sub">Measures face-detection speed and speech-to-caption latency. Ran in the browser.</p>
+  <div id="wrap">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
+    <div id="caption"></div>
+  </div>
+  <div id="status">Loading face model…</div>
+  <div id="stats">
+    <div>Face detection, rolling avg: <span id="faceAvg">-</span></div>
+    <div>Caption update latency, rolling avg: <span id="sttAvg">-</span></div>
+    <div>Last caption text: <span id="lastText">-</span></div>
+  </div>
+
+  <!-- Script that contains the face detection api -->
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+  <script>
+    // different elements on the page as variables
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const ctx = overlay.getContext('2d');
+    const caption = document.getElementById('caption');
+    const faceAvgEl = document.getElementById('faceAvg');
+    const sttAvgEl = document.getElementById('sttAvg');
+    const lastTextEl = document.getElementById('lastText');
+    const statusEl = document.getElementById('status');
+
+    let faceLatencies = [];
+    let sttLatencies = [];
+
+    // function to calculate averages
+    function avg(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+
+    // startup function
+    async function setup() {
+
+      // use the tiny face model for low latency
+      statusEl.textContent = 'Loading face model . . .';
+      await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master/tiny_face_detector');
+
+      // request access to the camera and mic through the browser
+      statusEl.textContent = 'Requesting camera & mic . . .';
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      video.srcObject = stream;
+      await new Promise(r => video.onloadedmetadata = r);
+      overlay.width = video.videoWidth || 640;
+      overlay.height = video.videoHeight || 480;
+
+      statusEl.textContent = 'Ready.';
+      
+      // constantly detect and update video
+      detectLoop();
+      startSpeech();
+    }
+
+    async function detectLoop() {
+      const t0 = performance.now();
+      const result = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()); // detect the face of the user
+      const ms = performance.now() - t0;
+
+      faceLatencies.push(ms);
+      if (faceLatencies.length > 30) faceLatencies.shift();
+      faceAvgEl.textContent = avg(faceLatencies).toFixed(1) + ' ms/frame';
+
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      if (result) {
+        const box = result.box;
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+        // mirror the box position back to unmirrored screen coords for the caption div
+        const mirroredX = overlay.clientWidth - (box.x + box.width);
+        caption.style.left = Math.max(0, mirroredX) + 'px';
+        caption.style.top = (box.y + box.height + 8) + 'px';
+        caption.style.display = 'block';
+      }
+      requestAnimationFrame(detectLoop);
+    }
+
+    function startSpeech() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        statusEl.textContent = 'SpeechRecognition not supported in this browser.';
+        return;
+      }
+      const recog = new SpeechRecognition();
+      recog.continuous = true;
+      recog.interimResults = true;
+      recog.lang = 'en-US';
+
+      let segmentStart = null;
+
+      recog.onspeechstart = () => { segmentStart = performance.now(); };
+      recog.onresult = (event) => {
+        const now = performance.now();
+        const result = event.results[event.results.length - 1];
+        const text = result[0].transcript;
+        caption.textContent = text;
+        lastTextEl.textContent = text;
+        if (segmentStart !== null) {
+          const ms = now - segmentStart;
+          sttLatencies.push(ms);
+          if (sttLatencies.length > 20) sttLatencies.shift();
+          sttAvgEl.textContent = avg(sttLatencies).toFixed(0) + ' ms (speech start / caption appears)';
+          segmentStart = now;
+        }
+      };
+      recog.onerror = (e) => { statusEl.textContent = 'Speech error: ' + e.error; };
+      recog.onend = () => recog.start();
+      recog.start();
+    }
+
+    // run setup
+    setup().catch(err => {
+      statusEl.textContent = 'Error: ' + err.message;
+    });
+  </script>
+</body>
+
+</html>
