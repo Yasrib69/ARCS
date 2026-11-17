@@ -61,6 +61,11 @@ class Settings:
     # Loudness (RMS, 0-1) above which a chunk of audio counts as speech
     caption_speech_rms: float
 
+    # Speaker lock: how mouth movement is matched to the sound (see face/speaker.py)
+    speaker_window_s: float
+    speaker_min_score: float
+    speaker_motion_floor: float
+
     cors_origins: list[str]
 
 
@@ -84,5 +89,8 @@ def load_settings() -> Settings:
         caption_silence_s=float(_env("CAPTION_SILENCE_S", "0.7")),
         caption_max_utterance_s=float(_env("CAPTION_MAX_UTTERANCE_S", "12")),
         caption_speech_rms=float(_env("CAPTION_SPEECH_RMS", "0.01")),
+        speaker_window_s=float(_env("SPEAKER_WINDOW_S", "1.0")),
+        speaker_min_score=float(_env("SPEAKER_MIN_SCORE", "0.35")),
+        speaker_motion_floor=float(_env("SPEAKER_MOTION_FLOOR", "0.04")),
         cors_origins=_env("CORS_ORIGINS", "*").split(","),
     )

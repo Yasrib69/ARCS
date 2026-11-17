@@ -8,6 +8,7 @@ import numpy as np
 
 from ..schemas import Face
 from .base import Detection, FaceDetector
+from .speaker import SpeakerFusion
 
 # Minimum overlap for a detection to count as the same face as last frame
 MIN_IOU = 0.2
@@ -41,6 +42,7 @@ class FaceTracker:
         forget_after_s: float = 1.0,
         activity_window_s: float = 0.8,
         speaking_threshold: float = 0.08,
+        fusion: SpeakerFusion | None = None,
     ):
         self._detector = detector
         self._forget_after_s = forget_after_s
@@ -48,6 +50,14 @@ class FaceTracker:
         self._speaking_threshold = speaking_threshold
         self._tracks: list[_Track] = []
         self._next_id = 0
+        # Optional: matches mouth movement to microphone loudness to find the real speaker
+        self._fusion = fusion
+        self.active_speaker_id: int | None = None
+
+    def push_audio_level(self, rms: float, now: float | None = None) -> None:
+        """Tell the tracker how loud the microphone is right now (RMS, 0-1)."""
+        if self._fusion:
+            self._fusion.add_audio(rms, time.monotonic() if now is None else now)
 
     def update(self, image: np.ndarray, now: float | None = None) -> list[Face]:
         """Process the next frame (HxWx3 uint8 RGB) and return the faces in it."""
@@ -75,6 +85,8 @@ class FaceTracker:
                 track.mouth.popleft()
             values = [value for _, value in track.mouth]
             activity = min(1.0, max(values) - min(values))
+            if self._fusion:
+                self._fusion.observe(track.id, detection.mouth_open, now)
 
             faces.append(
                 Face(
@@ -87,4 +99,8 @@ class FaceTracker:
                     speaking=activity >= self._speaking_threshold,
                 )
             )
+        if self._fusion:
+            self.active_speaker_id, scores = self._fusion.update([f.id for f in faces], now)
+            for face in faces:
+                face.speaker_score = round(scores.get(face.id, 0.0), 3)
         return faces
