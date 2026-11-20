@@ -17,12 +17,17 @@ class Face(BaseModel):
     # How much the mouth has been moving recently (0-1)
     mouth_activity: float
     speaking: bool
+    # How well this face's mouth movement follows the sound (0-1). Only filled in once the
+    # client reports microphone loudness; the highest score is the speaker.
+    speaker_score: float = 0.0
 
 
 class FacesMessage(BaseModel):
     type: Literal["faces"] = "faces"
     faces: list[Face]
     process_ms: float
+    # The face matching the sound, or None when nobody is clearly talking
+    active_speaker_id: int | None = None
 
 
 class Transcript(BaseModel):

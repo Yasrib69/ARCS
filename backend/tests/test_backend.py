@@ -22,6 +22,13 @@ def pcm(seconds: float, loud: bool, rate: int = SAMPLE_RATE) -> bytes:
     return samples.tobytes()
 
 
+def finish(ws) -> None:
+    """Close a test websocket and let the server notice before the test client force-cancels it
+    (otherwise the teardown sometimes ends with a spurious CancelledError)."""
+    ws.close()
+    time.sleep(0.1)
+
+
 def jpeg() -> bytes:
     ok, encoded = cv2.imencode(".jpg", np.zeros((48, 64, 3), dtype=np.uint8))
     assert ok
@@ -153,6 +160,7 @@ def test_ws_faces(client):
         assert ws.receive_json()["type"] == "error"
         ws.send_bytes(jpeg())
         second = ws.receive_json()
+        finish(ws)
     assert first["faces"][0]["id"] == second["faces"][0]["id"] == 0
 
 
@@ -252,3 +260,90 @@ def test_deepgram_session_reports_a_bad_key():
 
     with pytest.raises(ConnectionError, match="rejected the API key"):
         asyncio.run(scenario())
+
+
+# ---------- speaker lock ----------
+
+
+def _drive(fusion, seconds, speaker_hz, fidget_hz, loud_after=0.0):
+    """Face 0 flaps its mouth fast with a size that follows the voice loudness (like speech);
+    face 1 flaps just as fast, but its size follows an unrelated rhythm (like chewing)."""
+    import math
+
+    now, ids, active = 0.0, [0, 1], None
+    for step in range(int(seconds * 20)):
+        now = step / 20
+        voice = max(0.0, math.sin(2 * math.pi * speaker_hz * now)) ** 2  # words and pauses
+        other = max(0.0, math.sin(2 * math.pi * fidget_hz * now + 1)) ** 2
+        flap = 0.5 + 0.5 * math.sin(2 * math.pi * 5 * now)
+        if step % 2 == 0:
+            fusion.add_audio(0.1 * voice if now >= loud_after else 0.0, now)
+        fusion.observe(0, 0.05 + 0.3 * voice * flap, now)
+        fusion.observe(1, 0.05 + 0.3 * other * flap, now)
+        active, scores = fusion.update(ids, now)
+    return active, scores
+
+
+def test_speaker_lock_picks_face_that_follows_the_sound():
+    from arcs.face import SpeakerFusion
+
+    active, scores = _drive(SpeakerFusion(), 4.0, speaker_hz=1.7, fidget_hz=2.6)
+    assert active == 0
+    assert scores[0] > scores[1]
+
+
+def test_speaker_lock_stays_empty_in_silence():
+    from arcs.face import SpeakerFusion
+
+    active, scores = _drive(SpeakerFusion(), 4.0, speaker_hz=1.7, fidget_hz=2.6, loud_after=99)
+    assert active is None
+    assert scores == {0: 0.0, 1: 0.0}
+
+
+def test_tracker_reports_active_speaker():
+    from arcs.face import SpeakerFusion
+
+    tracker = FaceTracker(ScriptedDetector([[box(0.1), box(0.6)]] * 60), fusion=SpeakerFusion())
+    assert tracker.active_speaker_id is None
+    tracker.update(np.zeros((4, 4, 3), dtype=np.uint8), now=0.0)
+    tracker.push_audio_level(0.0, now=0.0)
+    assert hasattr(tracker.update(np.zeros((4, 4, 3), dtype=np.uint8), now=0.05)[0], "speaker_score")
+
+
+def test_ws_faces_accepts_audio_level(client):
+    with client.websocket_connect("/v1/ws/faces") as ws:
+        ws.send_text(json.dumps({"type": "audio_level", "rms": 0.1}))
+        ws.send_text(json.dumps({"type": "audio_level", "rms": "bad"}))  # ignored, not fatal
+        ws.send_bytes(jpeg())
+        reply = ws.receive_json()
+        finish(ws)
+    assert reply["type"] == "faces"
+    assert "active_speaker_id" in reply
+    assert "speaker_score" in reply["faces"][0]
+
+
+def test_simulated_accuracy_beats_mouth_only_on_unseen_conversations():
+    from arcs import simulation
+
+    result = simulation.evaluate(seeds=3, first_seed=10)["overall"]
+    assert result["speaker_lock_accuracy"] > result["mouth_only_accuracy"]
+    assert result["speaker_lock_accuracy"] > 0.7
+    assert result["mean_seconds_to_lock"] < 1.0
+
+
+def test_evaluation_endpoint(client):
+    body = client.get("/v1/speaker-lock/evaluation?seeds=1").json()
+    assert body["simulated"] is True
+    assert len(body["scenarios"]) == 6
+    assert 0 <= body["overall"]["speaker_lock_accuracy"] <= 1
+
+
+def test_demo_socket_streams_faces_status_and_captions(client):
+    kinds = set()
+    with client.websocket_connect("/v1/ws/demo") as ws:
+        for _ in range(400):
+            kinds.add(ws.receive_json()["type"])
+            if {"faces", "sim_status", "transcript"} <= kinds:
+                break
+        finish(ws)
+    assert {"faces", "sim_status", "transcript"} <= kinds

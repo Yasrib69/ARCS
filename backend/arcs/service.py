@@ -12,7 +12,7 @@ import numpy as np
 
 from .audio import SAMPLE_RATE, decode_wav
 from .config import load_settings
-from .face import FaceDetector, FaceTracker
+from .face import FaceDetector, FaceTracker, SpeakerFusion
 from .schemas import Face, Transcript
 from .stt import CaptionSession, CaptionStream, LocalCaptionSession, SpeechToText
 
@@ -74,8 +74,19 @@ def detect_faces(image: bytes) -> list[Face]:
 
 
 def open_face_tracker() -> FaceTracker:
-    """Start tracking a video stream; feed it frames with `tracker.update(decode_image(frame))`."""
-    return FaceTracker(get_face_detector())
+    """Start tracking a video stream; feed it frames with `tracker.update(decode_image(frame))`.
+
+    Report the microphone loudness with `tracker.push_audio_level(rms)` to also find out who
+    is speaking (`tracker.active_speaker_id`).
+    """
+    settings = load_settings()
+    fusion = SpeakerFusion(
+        window_s=settings.speaker_window_s,
+        min_audio_rms=settings.caption_speech_rms,
+        min_score=settings.speaker_min_score,
+        motion_floor=settings.speaker_motion_floor,
+    )
+    return FaceTracker(get_face_detector(), fusion=fusion)
 
 
 def transcribe_wav(wav: bytes) -> Transcript:

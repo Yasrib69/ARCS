@@ -57,6 +57,38 @@ set ARCS_STT_PROVIDER=fake
 
 Run the tests with `python -m pytest`.
 
+## Speaker lock (several faces)
+
+With more than one face in view, mouth movement alone is a weak clue: a listener who is
+chewing, nodding or mouthing along moves their mouth too. The speaker lock
+(`arcs/face/speaker.py`) compares each face's mouth movement over the last second with how
+loud the microphone is over the same second. The face whose lips follow the sound is the
+speaker, and the caption goes under that face. Each person gets a colour and a label
+(Speaker A, B, ...), and the page shows a small bar under each face with how well it matches.
+
+The **Speaker lock** switch under the video is Off by default, and with it Off the page captions exactly as before. Turn it On to use the lock, labels and loudness styling.
+
+With it On, the page sends the microphone loudness to the face socket a few times a second
+(`{"type": "audio_level", "rms": 0.05}`); each faces message then carries `active_speaker_id`
+and a `speaker_score` per face. Without audio levels everything works as before.
+
+Captions also show how loudly something was said: quiet speech is smaller and slanted, loud
+speech is larger. With a real microphone this is relative to how loud the person usually
+speaks; it is a rough guide, not a measurement.
+
+**Try it without a camera.** The **Try the demo** button on the demo page plays a simulated
+three-person conversation (`WS /v1/ws/demo`) through the real tracker and speaker lock, and
+shows whether the lock or mouth movement alone picked the right person. **Run accuracy test**
+scores both methods on simulated conversations (`GET /v1/speaker-lock/evaluation`).
+
+What the accuracy numbers mean: the conversations are simulated (`arcs/simulation.py`), so
+they check the logic, not a real webcam in a real room. On 6 scenarios the lock scores about
+79% against 67% for mouth movement alone, and is the better method when speakers are quiet or
+listeners move their mouths a lot. When listeners sit still, or people take very quick turns,
+mouth movement alone is as good or better. The settings (`ARCS_SPEAKER_*`) were chosen on some
+simulated conversations and checked on others, with the same result. Overlapping speech is not
+handled; one speaker at a time is assumed.
+
 ## API
 
 | Endpoint | Send | Receive |
@@ -65,6 +97,8 @@ Run the tests with `python -m pytest`.
 | `POST /v1/faces` | one image (JPEG/PNG) as the body | faces message |
 | `POST /v1/transcribe` | one 16-bit PCM WAV as the body | transcript message |
 | `WS /v1/ws/faces` | video frames as binary JPEG messages | a faces message per processed frame |
+| `GET /v1/speaker-lock/evaluation` | | speaker lock accuracy on simulated conversations |
+| `WS /v1/ws/demo` | | simulated faces, captions and ground truth, about 20 per second |
 | `WS /v1/ws/captions?sample_rate=16000&provider=deepgram` | mic audio as binary 16-bit little-endian mono PCM | transcript messages |
 
 ### Faces message
@@ -74,9 +108,10 @@ Run the tests with `python -m pytest`.
   "type": "faces",
   "faces": [
     {"id": 0, "x": 0.31, "y": 0.22, "width": 0.28, "height": 0.41,
-     "mouth_activity": 0.19, "speaking": true}
+     "mouth_activity": 0.19, "speaking": true, "speaker_score": 0.82}
   ],
-  "process_ms": 14.2
+  "process_ms": 14.2,
+  "active_speaker_id": 0
 }
 ```
 
@@ -84,8 +119,10 @@ Run the tests with `python -m pytest`.
   as sent. Multiply by the displayed video size. If the video is shown mirrored, use
   `1 - x - width` for the left edge.
 - `id` stays the same while a face remains in view, so a caption can stay attached to it.
-- `speaking` is true when the mouth has been moving. With several faces in view, put the
-  caption under the one with the highest `mouth_activity`.
+- `speaking` is true when the mouth has been moving. `active_speaker_id` is the face whose
+  mouth movement matches the microphone loudness (see Speaker lock), or `null` when nobody is
+  clearly talking; put the caption under that face. `speaker_score` (0-1) is how well each
+  face matches. Both need `audio_level` messages from the client.
 - Send frames as fast as you like; the server skips to the newest frame when it falls behind.
   A frame that cannot be decoded gets `{"type": "error", "message": "..."}`.
 
@@ -133,7 +170,8 @@ canvas.toBlob((blob) => faces.send(blob), 'image/jpeg', 0.7);
 | `arcs/server.py` | HTTP and WebSocket endpoints over those functions |
 | `arcs/schemas.py` | JSON message shapes |
 | `arcs/config.py` | Settings, all overridable with `ARCS_*` environment variables |
-| `arcs/face/` | `FaceDetector` interface, MediaPipe implementation, `FaceTracker` (ids and speaking) |
+| `arcs/face/` | `FaceDetector` interface, MediaPipe implementation, `FaceTracker` (ids and speaking), `speaker.py` (speaker lock) |
+| `arcs/simulation.py` | Simulated conversations for the demo mode and the accuracy test |
 | `arcs/stt/` | `CaptionSession` interface for live captions, with on-device (Whisper via `CaptionStream`) and cloud (`deepgram.py`) implementations |
 
 To add another cloud speech service, subclass `CaptionSession` (see `arcs/stt/deepgram.py`)

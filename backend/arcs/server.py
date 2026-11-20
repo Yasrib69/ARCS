@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from . import service
+from . import service, simulation
 from .audio import SAMPLE_RATE
 from .config import BACKEND_DIR, load_settings
 from .schemas import ErrorMessage, FacesMessage, Transcript
@@ -44,7 +44,11 @@ app.add_middleware(
 def _track(tracker, frame: bytes) -> FacesMessage:
     started = time.perf_counter()
     faces = tracker.update(service.decode_image(frame))
-    return FacesMessage(faces=faces, process_ms=round((time.perf_counter() - started) * 1000, 1))
+    return FacesMessage(
+        faces=faces,
+        process_ms=round((time.perf_counter() - started) * 1000, 1),
+        active_speaker_id=tracker.active_speaker_id,
+    )
 
 
 async def _receive(websocket: WebSocket) -> tuple[bytes | None, dict | None]:
@@ -110,11 +114,46 @@ async def transcribe(request: Request):
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+# Accuracy of the speaker lock on simulated conversations. It takes several seconds to
+# compute, so it runs once, in the background, and the result is kept.
+_evaluation: dict = {}
+
+
+@app.get("/v1/speaker-lock/evaluation")
+async def speaker_lock_evaluation(seeds: int = 4):
+    """Score the speaker lock against the old mouth-only method on simulated conversations."""
+    seeds = max(1, min(seeds, 10))
+    if seeds not in _evaluation:
+        _evaluation[seeds] = await asyncio.to_thread(simulation.evaluate, seeds)
+    return _evaluation[seeds]
+
+
+@app.websocket("/v1/ws/demo")
+async def ws_demo(websocket: WebSocket):
+    """A looping, simulated three-person conversation, for demonstrating without a camera.
+    Sends the same `faces` and `transcript` messages as the real endpoints (plus a
+    `sim_status` message with the ground truth), about 20 times a second."""
+    await websocket.accept()
+    demo = simulation.LiveDemo()
+    started = time.perf_counter()
+    try:
+        while True:
+            for message in demo.step(time.perf_counter() - started):
+                await websocket.send_text(json.dumps(message))
+            await asyncio.sleep(simulation.FRAME_S)
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+
+
 @app.websocket("/v1/ws/faces")
 async def ws_faces(websocket: WebSocket):
     """Client sends encoded video frames (binary); server replies with a FacesMessage for each
     frame it processes. Frames that arrive while one is being processed replace each other, so
-    results always describe the most recent frame."""
+    results always describe the most recent frame.
+
+    The client may also send {"type": "audio_level", "rms": 0.05} (microphone loudness, 0-1)
+    a few times a second. With it, each reply says which face matches the sound
+    (`active_speaker_id`), instead of relying on mouth movement alone."""
     await websocket.accept()
     tracker = service.open_face_tracker()
     latest: list[bytes] = []
@@ -122,10 +161,15 @@ async def ws_faces(websocket: WebSocket):
 
     async def receive_frames():
         while True:
-            frame, _ = await _receive(websocket)
+            frame, control = await _receive(websocket)
             if frame is not None:
                 latest[:] = [frame]
                 has_frame.set()
+            elif control and control.get("type") == "audio_level":
+                try:
+                    tracker.push_audio_level(float(control["rms"]))
+                except (KeyError, TypeError, ValueError):
+                    pass
 
     async def process_frames():
         while True:

@@ -8,126 +8,56 @@
   <link rel="icon" href="data:,">
   <style>
     :root {
-      --bg: #0a0c10;
-      --panel: #12151c;
-      --line: #232834;
-      --text: #eef1f6;
-      --muted: #8c94a6;
-      --accent: #5eead4;
-      --warn: #fbbf24;
-      --bad: #f87171;
+      --bg: #f4f4f4;
+      --panel: #ffffff;
+      --line: #c8c8c8;
+      --text: #1d1d1d;
+      --muted: #666666;
+      --accent: #1f4e9c;
+      --good: #1e7e46;
+      --bad: #b3261e;
       --caption-size: 24px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      font-family: "Segoe UI", -apple-system, system-ui, sans-serif;
-      display: flex;
-      flex-direction: column;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
     }
 
-    button {
-      font: inherit;
-      color: inherit;
-      cursor: pointer;
-    }
+    button { font: inherit; color: inherit; cursor: pointer; }
 
     /* ---------- header ---------- */
 
-    header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 24px;
+    body > header {
+      padding: 12px 20px;
+      background: var(--panel);
       border-bottom: 1px solid var(--line);
-      flex-wrap: wrap;
     }
 
-    .brand {
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      margin-right: auto;
-    }
+    .brand { display: flex; align-items: baseline; gap: 10px; }
+    .brand h1 { margin: 0; font-size: 20px; }
+    .brand p { margin: 0; color: var(--muted); }
 
-    .brand h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-    }
-
-    .brand h1 span {
-      color: var(--accent);
-    }
-
-    .brand p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      font-size: 13px;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-
-    .pill i {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4b5263;
-    }
-
-    .pill.ok i {
-      background: var(--accent);
-      box-shadow: 0 0 8px var(--accent);
-    }
-
-    .pill.wait i {
-      background: var(--warn);
-    }
-
-    .pill.bad i {
-      background: var(--bad);
-    }
-
-    .pill b {
-      color: var(--text);
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
+    /* status badges are kept for the script but not shown */
+    .pill { display: none; }
 
     /* ---------- layout ---------- */
 
     main {
-      flex: 1;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
-      gap: 20px;
-      padding: 20px 24px 24px;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 16px;
+      padding: 16px 20px;
       align-items: start;
     }
 
-    @media (max-width: 960px) {
-      main {
-        grid-template-columns: 1fr;
-      }
-    }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
 
     /* ---------- video stage ---------- */
 
@@ -138,8 +68,6 @@
       max-height: calc(100vh - 150px);
       margin: 0 auto;
       background: #000;
-      border: 1px solid var(--line);
-      border-radius: 16px;
       overflow: hidden;
     }
 
@@ -153,28 +81,24 @@
     }
 
     .face {
+      --c: #888;
       position: absolute;
-      border: 2px solid rgba(255, 255, 255, 0.35);
-      border-radius: 18px;
-      transition: left 0.1s linear, top 0.1s linear, width 0.1s linear, height 0.1s linear,
-        border-color 0.2s, box-shadow 0.2s;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      transition: left 0.1s linear, top 0.1s linear, width 0.1s linear, height 0.1s linear;
       pointer-events: none;
     }
 
-    .face.speaking {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(94, 234, 212, 0.25), 0 0 24px rgba(94, 234, 212, 0.35);
-    }
+    .face.speaking { border-color: #4cd07d; }
 
     #caption {
       position: absolute;
       left: 0;
       top: 0;
       max-width: min(70%, 560px);
-      padding: 10px 16px;
-      background: rgba(0, 0, 0, 0.82);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 12px;
+      padding: 8px 14px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      border-radius: 4px;
       font-size: var(--caption-size);
       font-weight: 600;
       line-height: 1.3;
@@ -184,13 +108,83 @@
       pointer-events: none;
     }
 
-    #caption.show {
-      opacity: 1;
+    #caption.show { opacity: 1; }
+    #caption.interim { color: #d8d8d8; }
+
+    /* ---------- speaker lock ---------- */
+
+    .face .tag {
+      display: none;
+      position: absolute;
+      left: -2px;
+      top: -24px;
+      padding: 2px 8px;
+      background: var(--c);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
     }
 
-    #caption.interim {
-      color: #d5dae4;
+    #stage.multi .face .tag { display: block; }
+
+    .face .bar {
+      display: none;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -8px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.25);
     }
+
+    #stage.multi .face .bar { display: block; }
+
+    .face .bar::after {
+      content: "";
+      display: block;
+      height: 100%;
+      width: var(--score, 0%);
+      background: var(--c);
+    }
+
+    #stage.multi .face.locked { border-color: var(--c); border-width: 3px; }
+
+    #caption .who {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 0.55em;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    #caption.multi { border: 2px solid var(--c); }
+
+    /* quiet speech is smaller and slanted, loud speech larger */
+    #caption.soft { font-size: calc(var(--caption-size) * 0.78); font-style: italic; font-weight: 500; }
+    #caption.loud { font-size: calc(var(--caption-size) * 1.3); font-weight: 800; }
+
+    /* demo room (no camera) */
+
+    #stage.demo { background: #20242b; }
+    #stage.demo #video { display: none; }
+
+    .head { position: absolute; inset: 0; border-radius: 45%; background: #55607a; }
+    .head .eye { position: absolute; top: 34%; width: 9%; height: 6%; border-radius: 50%; background: #fff; }
+    .head .eye:nth-child(1) { left: 28%; }
+    .head .eye:nth-child(2) { right: 28%; }
+    .head .mouth {
+      position: absolute;
+      left: 50%;
+      bottom: 20%;
+      width: 26%;
+      height: calc(3% + var(--m, 0) * 40%);
+      transform: translateX(-50%);
+      border-radius: 40%;
+      background: #111;
+    }
+
+    /* ---------- intro ---------- */
 
     #intro {
       position: absolute;
@@ -199,182 +193,123 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 18px;
+      gap: 14px;
       padding: 24px;
       text-align: center;
-      background: radial-gradient(ellipse at center, #171b25 0%, #0a0c10 75%);
+      background: #20242b;
+      color: #fff;
     }
 
-    #intro h2 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 650;
+    #intro h2 { margin: 0; font-size: 22px; }
+    #intro p { margin: 0; max-width: 460px; color: #cfd3da; line-height: 1.5; }
+
+    #start, #demo {
+      padding: 9px 22px;
+      border-radius: 4px;
+      font-size: 15px;
     }
 
-    #intro p {
-      margin: 0;
-      max-width: 460px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
+    #start { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+    #start:disabled { opacity: 0.6; cursor: wait; }
+    #demo { border: 1px solid #8a91a0; background: transparent; color: #fff; }
 
-    #start {
-      margin-top: 6px;
-      padding: 13px 30px;
-      border: 0;
-      border-radius: 999px;
-      background: var(--accent);
-      color: #04201c;
-      font-size: 16px;
-      font-weight: 700;
-    }
-
-    #start:hover {
-      filter: brightness(1.08);
-    }
-
-    #start:disabled {
-      opacity: 0.6;
-      cursor: wait;
-    }
-
-    #error {
-      color: var(--bad);
-      min-height: 1.4em;
-    }
+    #error { color: #ff8a80; min-height: 1.4em; }
 
     /* ---------- controls under the video ---------- */
 
     .controls {
       display: flex;
       align-items: center;
-      gap: 14px;
-      margin-top: 14px;
+      gap: 12px;
+      margin-top: 12px;
       color: var(--muted);
-      font-size: 13px;
       flex-wrap: wrap;
     }
 
-    .controls .spacer {
-      flex: 1;
-    }
+    .controls .spacer { flex: 1; }
 
     .btn {
-      padding: 7px 14px;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      font-size: 13px;
+      padding: 5px 12px;
+      border: 1px solid #999;
+      border-radius: 4px;
+      background: #fff;
     }
 
-    .btn:hover {
-      border-color: #3a4152;
-    }
+    .btn:hover { background: #eee; }
 
-    .segmented {
-      display: flex;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-    }
+    .segmented { display: flex; }
 
     .segmented button {
-      padding: 7px 12px;
-      background: var(--panel);
-      border: 0;
-      font-weight: 600;
+      padding: 5px 12px;
+      border: 1px solid #999;
+      background: #fff;
     }
 
-    .segmented button+button {
-      border-left: 1px solid var(--line);
-    }
+    .segmented button + button { border-left: 0; }
+    .segmented button:first-child { border-radius: 4px 0 0 4px; }
+    .segmented button:last-child { border-radius: 0 4px 4px 0; }
+    .segmented button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .segmented button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .segmented button[aria-pressed="true"] {
-      background: var(--accent);
-      color: #04201c;
-    }
+    .meter { width: 90px; height: 8px; background: #ddd; overflow: hidden; }
+    .meter div { height: 100%; width: 0; background: var(--good); }
 
-    .segmented button:disabled {
-      color: #5b6274;
-      cursor: not-allowed;
-    }
-
-    .meter {
-      width: 90px;
-      height: 6px;
-      background: var(--line);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .meter div {
-      width: 0;
-      height: 100%;
-      background: var(--accent);
-      transition: width 0.1s linear;
-    }
-
-    /* ---------- transcript ---------- */
+    /* ---------- transcript panel ---------- */
 
     aside {
       display: flex;
       flex-direction: column;
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 16px;
       height: min(calc(100vh - 150px), 640px);
       min-height: 280px;
+      background: var(--panel);
+      border: 1px solid var(--line);
     }
 
     aside header {
-      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
     }
 
-    aside h2 {
-      margin: 0 auto 0 0;
-      font-size: 14px;
-      font-weight: 650;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+    aside h2 { margin: 0 auto 0 0; font-size: 15px; }
+
+    #transcript { flex: 1; overflow-y: auto; padding: 4px 12px 12px; }
+    #transcript .empty { color: var(--muted); line-height: 1.5; }
+
+    .line { padding: 8px 0; border-bottom: 1px solid #e4e4e4; line-height: 1.45; }
+    .line time { display: block; font-size: 11px; color: var(--muted); }
+    .line.interim span { color: var(--muted); }
+    .line .who { margin-right: 6px; color: var(--c, var(--muted)); font-size: 11px; text-transform: uppercase; }
+    .line .who:empty { display: none; }
+
+    /* speaker lock card */
+
+    #lab {
+      margin: 10px 12px 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      background: #fafafa;
       color: var(--muted);
-    }
-
-    #transcript {
-      flex: 1;
-      overflow-y: auto;
-      padding: 6px 16px 16px;
-    }
-
-    #transcript .empty {
-      color: var(--muted);
-      margin-top: 12px;
       line-height: 1.5;
     }
 
-    .line {
-      padding: 10px 0;
-      border-bottom: 1px solid var(--line);
-      line-height: 1.45;
-    }
-
-    .line time {
-      display: block;
-      font-size: 11px;
-      color: var(--muted);
-      margin-bottom: 2px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .line.interim span {
-      color: var(--muted);
-    }
+    #lab h3 { margin: 0 0 6px; font-size: 13px; color: var(--text); }
+    #lab .row { display: flex; justify-content: space-between; gap: 8px; }
+    #lab b { color: var(--text); }
+    #lab .ok { color: var(--good); }
+    #lab .no { color: var(--bad); }
+    #lab table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 12px; }
+    #lab td, #lab th { padding: 2px 0; text-align: right; font-weight: 400; }
+    #lab td:first-child, #lab th:first-child { text-align: left; }
+    #lab .btn { margin-top: 8px; }
   </style>
 </head>
 
 <body>
   <header>
     <div class="brand">
-      <h1>AR<span>CS</span></h1>
+      <h1>ARCS</h1>
       <p>AR Captioning System</p>
     </div>
     <div class="pill" id="facePill"><i></i>Face tracking <b id="faceStat"></b></div>
@@ -391,6 +326,7 @@
           <p>ARCS listens to the conversation, turns speech into text, and places the captions right below the
             face of the person talking.</p>
           <button id="start">Start captioning</button>
+          <button id="demo" title="A simulated three-person conversation: no camera or microphone needed">Try the demo (no camera)</button>
           <div id="error" role="alert"></div>
         </div>
       </div>
@@ -413,6 +349,11 @@
           <button data-size="24" aria-pressed="true">M</button>
           <button data-size="34" aria-pressed="false">L</button>
         </div>
+        <span title="Off: captions work exactly as before. On: with several faces, the caption follows the person whose lips match the sound.">Speaker lock</span>
+        <div class="segmented" id="lock">
+          <button data-on="0" aria-pressed="true">Off</button>
+          <button data-on="1" aria-pressed="false">On</button>
+        </div>
         <button class="btn" id="stop" hidden>Stop</button>
       </div>
     </section>
@@ -422,6 +363,21 @@
         <h2>Transcript</h2>
         <button class="btn" id="clear">Clear</button>
       </header>
+      <div id="lab">
+        <h3>Speaker lock</h3>
+        <div id="live" hidden>
+          <div class="row"><span>Really talking</span><b id="labTruth">-</b></div>
+          <div class="row"><span>Speaker lock picks</span><b id="labLock">-</b></div>
+          <div class="row"><span>Mouth movement only picks</span><b id="labMouth">-</b></div>
+          <div class="row"><span>Accuracy so far (lock / mouth only)</span><b id="labAcc">-</b></div>
+          <div>This demo room is deliberately busy: the listeners move their mouths as much as the speaker.
+            In calmer rooms mouth movement alone does well too; see the accuracy test below.</div>
+        </div>
+        <div id="labIdle">Matches each person's lip movement to the sound, so a listener who is chewing or nodding
+          does not steal the caption.</div>
+        <button class="btn" id="runEval">Run accuracy test</button>
+        <div id="evalOut"></div>
+      </div>
       <div id="transcript" aria-live="polite">
         <p class="empty">Everything that is said will be kept here, so nothing is missed if you look away.</p>
       </div>
@@ -464,6 +420,17 @@
     let activeFaceId = null;
     let hideTimer = null;
     let lines = new Map();                         // utterance id -> transcript line element
+    let lockOn = false;                            // speaker lock switch; off = captions behave as before
+    const useLock = () => lockOn || demoMode;
+    let lockedId = null;                           // face whose lips match the sound (backend speaker lock)
+    let demoSocket = null, demoMode = false;       // simulated room instead of the camera
+    let mirror = true;                             // the camera view is mirrored; the demo room is not
+    const speakerOf = new Map();                   // utterance id -> id of the face that was talking
+    let speechAvg = 0, speechBase = 0, simLoudness = null; // how loud the speech is, for the caption style
+    const COLOURS = ['#2b6cb0', '#d97706', '#2f855a', '#c53030', '#6b46c1'];
+    const colourOf = (id) => COLOURS[id % COLOURS.length];
+    const nameOf = (id) => 'Speaker ' + String.fromCharCode(65 + (id % 26));
+    const tally = { frames: 0, lock: 0, mouth: 0 };
 
     function setPill(pill, state) {
       pill.className = 'pill ' + state;
@@ -498,8 +465,76 @@
       startCaptions();
     }
 
+    // A simulated conversation between three people: the same face and caption messages the real
+    // camera and microphone produce, so it can be shown anywhere without any hardware
+    function startDemo() {
+      demoMode = true;
+      mirror = false;
+      running = true;
+      stage.classList.add('demo');
+      stage.style.aspectRatio = '16 / 9';
+      intro.style.display = 'none';
+      stopBtn.hidden = false;
+      $('live').hidden = false;
+      $('labIdle').hidden = true;
+      tally.frames = tally.lock = tally.mouth = 0;
+      setPill(captionPill, 'ok');
+      captionLabel.textContent = 'Demo captions';
+      captionStat.textContent = 'simulated';
+      setPill(facePill, 'wait');
+      const socket = demoSocket = new WebSocket(WS_BASE + '/v1/ws/demo');
+      let last = 0, fps = 0;
+      socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'faces') {
+          const now = performance.now();
+          if (last) fps = fps * 0.8 + (1000 / (now - last)) * 0.2;
+          last = now;
+          setPill(facePill, 'ok');
+          faceStat.textContent = Math.round(fps) + ' fps';
+          showFaces(message.faces, message.active_speaker_id);
+        } else if (message.type === 'sim_status') {
+          showSimStatus(message);
+        } else if (message.type === 'transcript') {
+          showTranscript(message);
+        }
+      };
+      socket.onclose = () => { if (running && demoMode) { setPill(facePill, 'bad'); faceStat.textContent = 'backend stopped'; } };
+    }
+
+    // The demo knows who is really talking, so it can show the lock being right or wrong
+    function showSimStatus(status) {
+      simLoudness = status.loudness;
+      for (const [id, mouth] of Object.entries(status.mouths)) {
+        faceEls.get(Number(id))?.style.setProperty('--m', mouth);
+      }
+      const verdict = (pick) => pick == null ? '-' : nameOf(pick) + (status.truth == null ? '' : pick === status.truth ? ' ✓' : ' ✗');
+      const mark = (el, pick) => { el.textContent = verdict(pick); el.className = pick == null || status.truth == null ? '' : pick === status.truth ? 'ok' : 'no'; };
+      $('labTruth').textContent = status.truth == null ? 'nobody' : nameOf(status.truth);
+      mark($('labLock'), lockedId);
+      mark($('labMouth'), status.mouth_only);
+      if (status.truth != null) {
+        tally.frames++;
+        tally.lock += lockedId === status.truth;
+        tally.mouth += status.mouth_only === status.truth;
+        $('labAcc').textContent = Math.round(100 * tally.lock / tally.frames) + '% / ' + Math.round(100 * tally.mouth / tally.frames) + '%';
+      }
+    }
+
     function stop() {
       running = false;
+      demoSocket?.close();
+      demoSocket = null;
+      if (demoMode) {
+        demoMode = false;
+        mirror = true;
+        stage.classList.remove('demo', 'multi');
+        $('live').hidden = true;
+        $('labIdle').hidden = false;
+        captionLabel.textContent = 'Captions';
+        lockedId = null;
+        simLoudness = null;
+      }
       facesSocket?.close();
       stopCaptions();
       media?.getTracks().forEach((track) => track.stop());
@@ -549,7 +584,7 @@
           if (lastReply) fps = fps * 0.8 + (1000 / (now - lastReply)) * 0.2;
           lastReply = now;
           faceStat.textContent = Math.round(message.process_ms) + ' ms · ' + Math.round(fps) + ' fps';
-          showFaces(message.faces);
+          showFaces(message.faces, message.active_speaker_id);
         }
         setTimeout(sendFrame, 10);
       };
@@ -562,19 +597,28 @@
       };
     }
 
-    function showFaces(faces) {
+    function showFaces(faces, speakerId = null) {
       const seen = new Set();
+      const lock = useLock();
+      if (!lock) speakerId = null;
+      stage.classList.toggle('multi', lock && faces.length > 1);
+      caption.classList.toggle('multi', lock && faces.length > 1);
       for (const face of faces) {
         seen.add(face.id);
         let el = faceEls.get(face.id);
         if (!el) {
           el = document.createElement('div');
           el.className = 'face';
+          el.innerHTML = (demoMode ? '<div class="head"><b class="eye"></b><b class="eye"></b><u class="mouth"></u></div>' : '')
+            + '<span class="tag"></span><i class="bar"></i>';
+          el.style.setProperty('--c', colourOf(face.id));
+          el.querySelector('.tag').textContent = nameOf(face.id);
           stage.insertBefore(el, caption);
           faceEls.set(face.id, el);
         }
         // The video is mirrored, so flip the horizontal position
-        face.left = 1 - face.x - face.width;
+        face.left = mirror ? 1 - face.x - face.width : face.x;
+        el.style.setProperty('--score', Math.round((face.speaker_score || 0) * 100) + '%');
         el.style.left = face.left * 100 + '%';
         el.style.top = face.y * 100 + '%';
         el.style.width = face.width * 100 + '%';
@@ -588,13 +632,18 @@
       // visibly talking it stays where it was, and otherwise picks the nearest face
       const talking = faces.filter((f) => f.speaking)
         .sort((a, b) => b.mouth_activity - a.mouth_activity)[0];
-      if (talking) activeFaceId = talking.id;
+      // The speaker lock (mouth movement matched to the sound) decides when it has an answer;
+      // it keeps the last speaker through short pauses. Without it, the loudest mouth wins.
+      lockedId = speakerId;
+      if (speakerId != null) activeFaceId = speakerId;
+      else if (talking && (!lock || !faces.some((f) => f.speaker_score > 0))) activeFaceId = talking.id;
       anchor = faces.find((f) => f.id === activeFaceId)
         || faces.slice().sort((a, b) => b.width * b.height - a.width * a.height)[0]
         || null;
       activeFaceId = anchor ? anchor.id : null;
       for (const [id, el] of faceEls) {
         el.classList.toggle('speaking', Boolean(talking) && id === talking.id);
+        el.classList.toggle('locked', id === speakerId);
       }
       placeCaption();
     }
@@ -664,6 +713,14 @@
         for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
         const rms = Math.sqrt(sum / chunk.length) / 32768;
         levelEl.style.width = Math.min(100, rms * 500) + '%';
+        // The backend matches each face's lip movement to this loudness to find who is talking
+        if (lockOn && facesSocket?.readyState === WebSocket.OPEN) {
+          facesSocket.send(JSON.stringify({ type: 'audio_level', rms }));
+        }
+        if (rms > 0.01) {
+          speechAvg = speechAvg ? speechAvg * 0.9 + rms * 0.1 : rms;
+          speechBase = speechBase ? speechBase * 0.995 + rms * 0.005 : rms;
+        }
       };
       source.connect(sender);
     }
@@ -695,7 +752,18 @@
       recog?.abort();
     }
 
+    // Quiet speech is shown smaller, loud speech larger. In the demo the loudness is known;
+    // with a real microphone it is judged against how loud this person usually speaks.
+    function loudnessOf() {
+      if (demoMode) return simLoudness === 'soft' ? 'soft' : simLoudness === 'loud' ? 'loud' : '';
+      if (!speechBase) return '';
+      const ratio = speechAvg / speechBase;
+      return ratio < 0.65 ? 'soft' : ratio > 1.5 ? 'loud' : '';
+    }
+
     function showTranscript(message) {
+      // The label follows the speaker lock while the sentence is still coming in, then stays
+      if (!message.is_final || !speakerOf.has(message.utterance_id)) speakerOf.set(message.utterance_id, activeFaceId);
       showCaption(message);
       addToTranscript(message);
     }
@@ -788,7 +856,19 @@
     }
 
     function showCaption(message) {
-      caption.textContent = recentWords(message.text);
+      const who = speakerOf.get(message.utterance_id);
+      caption.replaceChildren();
+      if (useLock() && who != null && faceEls.size > 1) {
+        const label = document.createElement('span');
+        label.className = 'who';
+        label.textContent = nameOf(who);
+        caption.append(label);
+        caption.style.setProperty('--c', colourOf(who));
+      }
+      caption.append(recentWords(message.text));
+      const loudness = useLock() ? loudnessOf() : '';
+      caption.classList.toggle('soft', loudness === 'soft');
+      caption.classList.toggle('loud', loudness === 'loud');
       caption.classList.add('show');
       caption.classList.toggle('interim', !message.is_final);
       placeCaption();
@@ -806,11 +886,23 @@
         line.className = 'line';
         const time = document.createElement('time');
         time.textContent = new Date().toLocaleTimeString();
-        line.append(time, document.createElement('span'));
+        const who = document.createElement('b');
+        who.className = 'who';
+        const speaker = speakerOf.get(message.utterance_id);
+        if (useLock() && speaker != null && faceEls.size > 1) {
+          who.textContent = nameOf(speaker);
+          who.style.setProperty('--c', colourOf(speaker));
+        }
+        line.append(time, who, document.createElement('span'));
         transcriptEl.append(line);
         lines.set(message.utterance_id, line);
       }
       line.lastChild.textContent = message.text;
+      const speaker = speakerOf.get(message.utterance_id), tag = line.querySelector('.who');
+      if (useLock() && speaker != null && faceEls.size > 1) {
+        tag.textContent = nameOf(speaker);
+        tag.style.setProperty('--c', colourOf(speaker));
+      }
       line.classList.toggle('interim', !message.is_final);
       transcriptEl.scrollTop = transcriptEl.scrollHeight;
     }
@@ -856,6 +948,38 @@
     // ---------- controls ----------
 
     startBtn.onclick = start;
+    $('demo').onclick = startDemo;
+    $('lock').onclick = (event) => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      lockOn = button.dataset.on === '1';
+      for (const b of $('lock').children) b.setAttribute('aria-pressed', String(b === button));
+      if (!lockOn && !demoMode) {
+        stage.classList.remove('multi');
+        caption.classList.remove('multi', 'soft', 'loud');
+        lockedId = null;
+        for (const el of faceEls.values()) el.classList.remove('locked');
+      }
+    };
+    $('runEval').onclick = async () => {
+      const out = $('evalOut'), button = $('runEval');
+      button.disabled = true;
+      out.textContent = 'Running simulated conversations…';
+      try {
+        const result = await (await fetch(HTTP_BASE + '/v1/speaker-lock/evaluation?seeds=4')).json();
+        const pct = (x) => Math.round(x * 100) + '%';
+        const rows = Object.entries(result.scenarios).map(([name, r]) =>
+          `<tr><td>${name}</td><td>${pct(r.speaker_lock_accuracy)}</td><td>${pct(r.mouth_only_accuracy)}</td></tr>`).join('');
+        out.innerHTML = `<table><tr><th></th><th>Lock</th><th>Mouth only</th></tr>${rows}
+          <tr><td><b>Overall</b></td><td><b>${pct(result.overall.speaker_lock_accuracy)}</b></td>
+          <td><b>${pct(result.overall.mouth_only_accuracy)}</b></td></tr></table>
+          <div>Simulated conversations, ${result.runs_per_scenario} runs each. Locks on to a new speaker in
+          ${result.overall.mean_seconds_to_lock.toFixed(2)} s on average.</div>`;
+      } catch {
+        out.textContent = 'Could not reach the ARCS backend.';
+      }
+      button.disabled = false;
+    };
     stopBtn.onclick = stop;
     $('clear').onclick = () => {
       transcriptEl.replaceChildren();
